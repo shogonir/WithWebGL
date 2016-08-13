@@ -13,6 +13,8 @@ onload = function() {
 
     vshader = create_shader('vertex-shader');
     fshader = create_shader('fragment-shader');
+
+    create_program(vshader, fshader);
 }
 
 function create_shader (id) {
@@ -26,7 +28,7 @@ function create_shader (id) {
         case 'x-shader/x-vertex' :
             shader = gl.createShader(gl.VERTEX_SHADER);
             break;
-        case 'x-shader/x-flagment' :
+        case 'x-shader/x-fragment' :
             shader = gl.createShader(gl.FRAGMENT_SHADER);
             break;
         default :
@@ -34,15 +36,13 @@ function create_shader (id) {
     }
 
     var source_code, req = new XMLHttpRequest();
-    console.log(scriptElement.src);
     req.open('GET', scriptElement.src, false);
     req.onload = function () {
         source_code = req.response;
-        console.log(source_code);
     }
     req.send();
 
-    gl.shaderSource(shader, scriptElement.text);
+    gl.shaderSource(shader, source_code);
     gl.compileShader(shader);
 
     if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
@@ -54,27 +54,16 @@ function create_shader (id) {
 }
 
 function create_program(vs, fs){
-    // プログラムオブジェクトの生成
     var program = gl.createProgram();
     
-    // プログラムオブジェクトにシェーダを割り当てる
     gl.attachShader(program, vs);
     gl.attachShader(program, fs);
-    
-    // シェーダをリンク
     gl.linkProgram(program);
     
-    // シェーダのリンクが正しく行なわれたかチェック
     if(gl.getProgramParameter(program, gl.LINK_STATUS)){
-    
-        // 成功していたらプログラムオブジェクトを有効にする
         gl.useProgram(program);
-        
-        // プログラムオブジェクトを返して終了
         return program;
     }else{
-        
-        // 失敗していたらエラーログをアラートする
         alert(gl.getProgramInfoLog(program));
     }
 }
