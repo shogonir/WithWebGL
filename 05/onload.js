@@ -8,9 +8,6 @@ onload = function() {
 
     gl = c.getContext('webgl') || c.getContext('experimental-webgl')
 
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
     var vshader = create_shader('vertex-shader');
     var fshader = create_shader('fragment-shader');
 
@@ -46,31 +43,46 @@ onload = function() {
     gl.bindBuffer(gl.ARRAY_BUFFER, color_vbo);
     gl.enableVertexAttribArray(attLocation[1]);
     gl.vertexAttribPointer(attLocation[1], attStride[1], gl.FLOAT, false, 0, 0);
-
-    var mMat = identity4x4();
+    
     var vMat = makeLookAt(
         0.0, 1.0, 3.0,
         0.0, 0.0, 0.0,
         0.0, 1.0, 0.0
     );
-    var pMat = makePerspective(90.0, 1.0 * c.width / c.height, 0.1, 100);
-    var pvMat = pMat.x(vMat)
-    var mvpMat = pvMat.x(mMat);
-    console.log(mvpMat);
+    var pMat = makePerspective(90.0, c.width / c.height, 0.1, 100);
+    var vpMat = pMat.x(vMat);
 
-    var uniLocation = gl.getUniformLocation(prg, 'mvpMatrix');
+    var count = 0;
 
-    gl.uniformMatrix4fv(uniLocation, false, mvpMat.flatten());
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    (function () {
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clearDepth(1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
+        count++;
 
-    mMat = identity4x4();
-    mMat = mMat.translate($V([3.0, 0.0, 0.0]));
-    mvpMat = pvMat.x(mMat);
-    console.log(mvpMat);
-    gl.uniformMatrix4fv(uniLocation, false, mvpMat.flatten());
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+        var rad = (count % 360) * Math.PI / 45;
+        var x = Math.cos(rad);
+        var y = Math.sin(rad);
+        
+        var mMat = identity4x4().translate($V([x, y + 1.0, 0.0]));
+        var mvpMat = vpMat.x(mMat);
 
-    gl.flush();
+        var uniLocation = gl.getUniformLocation(prg, 'mvpMatrix');
+
+        gl.uniformMatrix4fv(uniLocation, false, mvpMat.flatten());
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+        mMat = identity4x4();
+        mMat = mMat.translate($V([3.0, 0.0, 0.0]));
+        mvpMat = vpMat.x(mMat);
+        gl.uniformMatrix4fv(uniLocation, false, mvpMat.flatten());
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+        gl.flush();
+
+        setTimeout(arguments.callee, 1000 / 30);
+    })();
 }
 
 function identity4x4 () {
