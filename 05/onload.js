@@ -1,25 +1,38 @@
 var gl;
 
-onload = function() {
-    var c = document.getElementById('canvas');
+initGL = function (id, width, height) {
+    var c = document.getElementById(id);
+    if (width) {
+        c.width = width;
+    }
+    if (height) {
+        c.height = height;
+    }
+    return c.getContext('webgl') || c.getContext('experimental-webgl')
+}
 
-    c.width  = 500;
-    c.height = 300;
+linkProgram = function (vshaderId, fshaderId) {
+    var vshader = create_shader(vshaderId);
+    var fshader = create_shader(fshaderId);
+    return create_program(vshader, fshader);
+}
 
-    gl = c.getContext('webgl') || c.getContext('experimental-webgl')
+registerData = function (data, prg, name, attrStride) {
+    var vbo = create_vbo(data);
+    var attrLocation = gl.getAttribLocation(prg, name);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.enableVertexAttribArray(attrLocation);
+    gl.vertexAttribPointer(attrLocation, attrStride, gl.FLOAT, false, 0, 0);
+}
 
-    var vshader = create_shader('vertex-shader');
-    var fshader = create_shader('fragment-shader');
+onload = function () {
 
-    var prg = create_program(vshader, fshader);
+    var width  = 500;
+    var height = 300;
 
-    var attLocation = new Array(2);
-    attLocation[0] = gl.getAttribLocation(prg, 'position');
-    attLocation[1] = gl.getAttribLocation(prg, 'color');
+    gl = initGL('canvas', width, height);
 
-    var attStride = new Array(2);
-    attStride[0] = 3;
-    attStride[1] = 4;
+    var prg = linkProgram('vertex-shader', 'fragment-shader');
 
     var vertex_position = [
         0.0, 1.0, 0.0,
@@ -30,26 +43,18 @@ onload = function() {
     var vertex_color = [
         1.0, 0.0, 0.0, 1.0,
         0.0, 1.0, 0.0, 1.0,
-        0.0, 0.0, 1.0, 1,0
+        0.0, 0.0, 1.0, 1.0
     ];
-
-    var position_vbo = create_vbo(vertex_position);
-    var color_vbo = create_vbo(vertex_color);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, position_vbo);
-    gl.enableVertexAttribArray(attLocation[0]);
-    gl.vertexAttribPointer(attLocation[0], attStride[0], gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, color_vbo);
-    gl.enableVertexAttribArray(attLocation[1]);
-    gl.vertexAttribPointer(attLocation[1], attStride[1], gl.FLOAT, false, 0, 0);
+    
+    registerData(vertex_position, prg, 'position', 3);
+    registerData(vertex_color, prg, 'color', 4);
     
     var vMat = makeLookAt(
         0.0, 1.0, 3.0,
         0.0, 0.0, 0.0,
         0.0, 1.0, 0.0
     );
-    var pMat = makePerspective(90.0, c.width / c.height, 0.1, 100);
+    var pMat = makePerspective(90.0, width / height, 0.1, 100);
     var vpMat = pMat.x(vMat);
 
     var count = 0;
