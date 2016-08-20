@@ -24,14 +24,20 @@ onload = function () {
     registerData(vertexPositions, prg, 'position', 3);
     registerData(vertexColors,    prg, 'color',    4);
 
-    var vMat = mat4.create()
+    var vMat = mat4.create();
     mat4.lookAt(vMat, [0.0, 1.0, 3.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
-    
+
     var pMat = mat4.create();
-    mat4.perspective(90, width / height, 0.1, 100, pMat);
+    mat4.perspective(pMat, 90 / 180 * Math.PI, width / height, 0.1, 100);
 
     var vpMat = mat4.create();
     mat4.multiply(vpMat, pMat, vMat);
+    console.log(' vMat ');
+    printMatrix(vMat);
+    console.log(' pMat ');
+    printMatrix(pMat);
+    console.log('vpMat ');
+    printMatrix(vpMat);
 
     var count = 0;
 
@@ -47,22 +53,28 @@ onload = function () {
 
         var mMat;
         var mvpMat;
+        var translation;
 
         mMat = mat4.create();
-        mat4.translate(mMat, [x, y + 1.0, 0.0]);
+        translation = vec3.create();
+        vec3.set(translation, x, y + 1.0, 0.0);
+        mat4.translate(mMat, mMat, translation);
         mvpMat = mat4.create();
         mat4.multiply(mvpMat, vpMat, mMat);
         drawObject(prg, mvpMat);
 
         mMat = mat4.create();
-        mat4.translate(mMat, [3.0, 0.0, 0.0]);
+        translation = vec3.create();
+        vec3.set(translation, 3.0, 0.0, 0.0);
+        mat4.translate(mMat, mMat, translation);
         mvpMat = mat4.create();
         mat4.multiply(mvpMat, vpMat, mMat);
         drawObject(prg, mvpMat);
-
+        printMatrix(mvpMat)
+        
         gl.flush();
-
-        setTimeout(arguments.callee, 1000 / 30);
+        
+        setTimeout(arguments.callee, 1000 / 5);
     })();
 }
 
@@ -107,23 +119,20 @@ function createShader (id) {
         sourceCode = req.response;
     }
     req.send();
-    console.log(sourceCode);
+    
     gl.shaderSource(shader, sourceCode);
     gl.compileShader(shader);
 
     if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
         return shader;
     } else {
-        alert('a');
+        alert('ERROR at onload.createShader()\n' + gl.getShaderInfoLog(shader));
         return null;
     }
 }
 
 function createProgram (vs, fs) {
     var program = gl.createProgram();
-
-    console.log(vs);
-    console.log(fs);
 
     gl.attachShader(program, vs);
     gl.attachShader(program, fs);
@@ -148,7 +157,7 @@ function registerData (data, prg, name, attrStride) {
 function createVbo (data) {
     var vbo = gl.createBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data, gl.STATIC_DRAW));
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     return vbo;
 }
@@ -160,7 +169,15 @@ function clearCanvas (r, g, b, a, depth) {
 }
 
 function drawObject(prg, mvpMat) {
-    var uniLocation = gl.getUniformLocation(prg, 'mvpMat');
+    var uniLocation = gl.getUniformLocation(prg, 'mvpMatrix');
     gl.uniformMatrix4fv(uniLocation, false, mvpMat);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+function printMatrix (mat) {
+    var matrix = [];
+    for (var i=0; i<4; i++) {
+        matrix.push([mat[i], mat[4+i], mat[8+i], mat[12+i]]);
+    }
+    console.log(matrix);
 }
