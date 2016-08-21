@@ -1,13 +1,41 @@
-var gl;
+class Camera {
+    
+    constructor (canvasId) {
+        var c = document.getElementById(canvasId);
+        this.canvas = c;
+        this.gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+        console.log(this.gl);
+        this.prg = linkProgram('vertex-shader', 'fragment-shader', this.gl);
+        this.vMat = mat4.create();
+        mat4.lookAt(this.vMat, [0, 1, 3], [0, 0, 0], [0, 1, 0]);
+        this.pMat = mat4.create();
+        var ratio = this.canvas.width / this.canvas.height;
+        mat4.perspective(this.pMat, degToRad(90), ratio, 0.1, 100);
+        this.vpMat = mat4.create();
+        mat4.multiply(this.vpMat, this.pMat, this.vMat);
+    }
+
+    clearCanvas (r, g, b, a, depth) {
+        this.gl.clearColor(r, g, b, a);
+        this.gl.clearDepth(depth);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+    }
+
+    flush () {
+        this.gl.flush();
+    }
+}
+
+function degToRad (angle) {
+    return angle / 180 * Math.PI;
+}
 
 onload = function () {
     
     var width  = 500;
     var height = 300;
 
-    gl = initGl('canvas', width, height);
-
-    var prg = linkProgram('vertex-shader', 'fragment-shader');
+    var camera = new Camera('canvas');
 
     var vertexPositions = [
         0.0, 1.0, 0.0,
@@ -21,29 +49,14 @@ onload = function () {
         1.0, 1.0, 0.0, 1.0,
     ];
 
-    registerData(vertexPositions, prg, 'position', 3);
-    registerData(vertexColors,    prg, 'color',    4);
-
-    var vMat = mat4.create();
-    mat4.lookAt(vMat, [0.0, 1.0, 3.0], [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
-
-    var pMat = mat4.create();
-    mat4.perspective(pMat, 90 / 180 * Math.PI, width / height, 0.1, 100);
-
-    var vpMat = mat4.create();
-    mat4.multiply(vpMat, pMat, vMat);
-    console.log(' vMat ');
-    printMatrix(vMat);
-    console.log(' pMat ');
-    printMatrix(pMat);
-    console.log('vpMat ');
-    printMatrix(vpMat);
+    registerData(vertexPositions, camera.prg, 'position', 3, camera.gl);
+    registerData(vertexColors,    camera.prg, 'color',    4, camera.gl);
 
     var count = 0;
 
     (function () {
         
-        clearCanvas(0.0, 0.0, 0.0, 1.0, 1.0);
+        camera.clearCanvas(0.0, 0.0, 0.0, 1.0, 1.0);
         
         count ++;
 
@@ -59,42 +72,35 @@ onload = function () {
         translation = vec3.create();
         vec3.set(translation, x, y + 1.0, 0.0);
         mat4.translate(mMat, mMat, translation);
+
         mvpMat = mat4.create();
-        mat4.multiply(mvpMat, vpMat, mMat);
-        drawObject(prg, mvpMat);
+        mat4.multiply(mvpMat, camera.vpMat, mMat);
+        drawObject(camera.prg, mvpMat, camera.gl);
 
         mMat = mat4.create();
         translation = vec3.create();
         vec3.set(translation, 3.0, 0.0, 0.0);
         mat4.translate(mMat, mMat, translation);
+
         mvpMat = mat4.create();
-        mat4.multiply(mvpMat, vpMat, mMat);
-        drawObject(prg, mvpMat);
+        mat4.multiply(mvpMat, camera.vpMat, mMat);
+        drawObject(camera.prg, mvpMat, camera.gl);
         
-        gl.flush();
+        camera.flush();
         
         setTimeout(arguments.callee, 1000 / 5);
     })();
 }
 
-function initGl (id, width, height) {
-    var c = document.getElementById(id);
-    if (width) {
-        c.width = width;
-    }
-    if (height) {
-        c.height = height;
-    }
-    return c.getContext('webgl') || c.getContext('experimental-webgl');
+function linkProgram (vshaderId, fshaderId, gl) {
+    console.log(gl);
+    var vshader = createShader(vshaderId, gl);
+    var fshader = createShader(fshaderId, gl);
+    return createProgram(vshader, fshader, gl);
 }
 
-function linkProgram (vshaderId, fshaderId) {
-    var vshader = createShader(vshaderId);
-    var fshader = createShader(fshaderId);
-    return createProgram(vshader, fshader);
-}
-
-function createShader (id) {
+function createShader (id, gl) {
+    console.log(gl);
     var shader;
     var scriptElement = document.getElementById(id);
     if (!scriptElement) {
@@ -130,7 +136,7 @@ function createShader (id) {
     }
 }
 
-function createProgram (vs, fs) {
+function createProgram (vs, fs, gl) {
     var program = gl.createProgram();
 
     gl.attachShader(program, vs);
@@ -145,15 +151,15 @@ function createProgram (vs, fs) {
     }
 }
 
-function registerData (data, prg, name, attrStride) {
-    var vbo = createVbo(data);
+function registerData (data, prg, name, attrStride, gl) {
+    var vbo = createVbo(data, gl);
     var attrLocation = gl.getAttribLocation(prg, name);
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.enableVertexAttribArray(attrLocation);
     gl.vertexAttribPointer(attrLocation, attrStride, gl.FLOAT, false, 0, 0);
 }
 
-function createVbo (data) {
+function createVbo (data, gl) {
     var vbo = gl.createBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
@@ -161,13 +167,7 @@ function createVbo (data) {
     return vbo;
 }
 
-function clearCanvas (r, g, b, a, depth) {
-    gl.clearColor(r, g, b, a);
-    gl.clearDepth(depth);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-}
-
-function drawObject(prg, mvpMat) {
+function drawObject(prg, mvpMat, gl) {
     var uniLocation = gl.getUniformLocation(prg, 'mvpMatrix');
     gl.uniformMatrix4fv(uniLocation, false, mvpMat);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
