@@ -134,7 +134,7 @@ class Object3D {
 class Triangle extends Object3D {
 
   constructor () {
-    super.constructor();
+    super();
   }
 }
 
