@@ -112,6 +112,32 @@ class Camera {
   }
 }
 
+class Object3D {
+
+  constructor () {
+    this.position = vec3.create();
+  }
+
+  setPosition (x, y, z) {
+    var newPosition = vec3.create();
+    vec3.set(newPosition, x, y, z);
+    this.position = newPosition;
+  }
+
+  calcModelMatrix () {
+    var mMat = mat4.create();
+    mat4.translate(mMat, mMat, this.position);
+    return mMat;
+  }
+}
+
+class Triangle extends Object3D {
+
+  constructor () {
+    super.constructor();
+  }
+}
+
 onload = function () {
 
   var width  = 500;
@@ -146,20 +172,15 @@ onload = function () {
     var x = Math.cos(rad);
     var y = Math.sin(rad);
 
-    var mMat;
-    var translation;
+    var triangle;
 
-    mMat = mat4.create();
-    translation = vec3.create();
-    vec3.set(translation, x, y + 1.0, 0.0);
-    mat4.translate(mMat, mMat, translation);
-    camera.drawObject(mMat);
+    triangle = new Triangle();
+    triangle.setPosition(x, y + 1.0, 0.0);
+    camera.drawObject(triangle.calcModelMatrix());
 
-    mMat = mat4.create();
-    translation = vec3.create();
-    vec3.set(translation, 3.0, 0.0, 0.0);
-    mat4.translate(mMat, mMat, translation);
-    camera.drawObject(mMat);
+    triangle = new Triangle();
+    triangle.setPosition(3.0, 0.0, 0.0);
+    camera.drawObject(triangle.calcModelMatrix());
 
     camera.flush();
 
