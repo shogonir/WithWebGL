@@ -4,8 +4,7 @@ class Camera {
         var c = document.getElementById(canvasId);
         this.canvas = c;
         this.gl = c.getContext('webgl') || c.getContext('experimental-webgl');
-        console.log(this.gl);
-        this.prg = linkProgram('vertex-shader', 'fragment-shader', this.gl);
+        this.prg = this.linkProgram('vertex-shader', 'fragment-shader');
         this.vMat = mat4.create();
         mat4.lookAt(this.vMat, [0, 1, 3], [0, 0, 0], [0, 1, 0]);
         this.pMat = mat4.create();
@@ -16,18 +15,101 @@ class Camera {
     }
 
     clearCanvas (r, g, b, a, depth) {
-        this.gl.clearColor(r, g, b, a);
-        this.gl.clearDepth(depth);
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        var gl = this.gl;
+        gl.clearColor(r, g, b, a);
+        gl.clearDepth(depth);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     }
 
     flush () {
         this.gl.flush();
     }
-}
+    
+    linkProgram (vshaderId, fshaderId) {
+        var vshader = this.createShader(vshaderId);
+        var fshader = this.createShader(fshaderId);
+        return this.createProgram(vshader, fshader);
+    }
 
-function degToRad (angle) {
-    return angle / 180 * Math.PI;
+    createShader (id) {
+        var gl = this.gl;
+        var shader;
+        var scriptElement = document.getElementById(id);
+        if (!scriptElement) {
+            return;
+        }
+
+        switch (scriptElement.type) {
+            case 'x-shader/x-vertex' :
+                shader = gl.createShader(gl.VERTEX_SHADER);
+                break;
+            case 'x-shader/x-fragment' :
+                shader = gl.createShader(gl.FRAGMENT_SHADER);
+                break;
+            default :
+                return;
+        }
+    
+        var sourceCode, req = new XMLHttpRequest();
+        req.open('GET', scriptElement.src, false);
+        req.onload = function () {
+            sourceCode = req.response;
+        }
+        req.send();
+    
+        gl.shaderSource(shader, sourceCode);
+        gl.compileShader(shader);
+
+        if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            return shader;
+        } else {
+            alert('ERROR at onload.createShader()\n' + gl.getShaderInfoLog(shader));
+            return null;
+        }
+    }
+
+    createProgram (vs, fs) {
+        var gl = this.gl;
+        var program = gl.createProgram();
+    
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+    
+        if (gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            gl.useProgram(program);
+            return program;
+        } else {
+            alert('ERROR at onload.create_program()\n' + gl.getProgramInfoLog(program));
+        }
+    }
+    
+    registerData (data, prg, name, attrStride) {
+        var gl = this.gl;
+        var vbo = this.createVbo(data);
+        var attrLocation = gl.getAttribLocation(prg, name);
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+        gl.enableVertexAttribArray(attrLocation);
+        gl.vertexAttribPointer(attrLocation, attrStride, gl.FLOAT, false, 0, 0);
+    }
+    
+    createVbo (data) {
+        var gl = this.gl;
+        var vbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        return vbo;
+    }
+
+    drawObject(prg, mMat) {
+        var gl = this.gl;
+        var mvpMat = mat4.create();
+        mat4.multiply(mvpMat, this.vpMat, mMat);
+        var uniLocation = gl.getUniformLocation(prg, 'mvpMatrix');
+        gl.uniformMatrix4fv(uniLocation, false, mvpMat);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
 }
 
 onload = function () {
@@ -49,8 +131,8 @@ onload = function () {
         1.0, 1.0, 0.0, 1.0,
     ];
 
-    registerData(vertexPositions, camera.prg, 'position', 3, camera.gl);
-    registerData(vertexColors,    camera.prg, 'color',    4, camera.gl);
+    camera.registerData(vertexPositions, camera.prg, 'position', 3);
+    camera.registerData(vertexColors,    camera.prg, 'color',    4);
 
     var count = 0;
 
@@ -65,112 +147,24 @@ onload = function () {
         var y = Math.sin(rad);
 
         var mMat;
-        var mvpMat;
         var translation;
 
         mMat = mat4.create();
         translation = vec3.create();
         vec3.set(translation, x, y + 1.0, 0.0);
-        mat4.translate(mMat, mMat, translation);
-
-        mvpMat = mat4.create();
-        mat4.multiply(mvpMat, camera.vpMat, mMat);
-        drawObject(camera.prg, mvpMat, camera.gl);
+        mat4.translate(mMat, mMat, translation); 
+        camera.drawObject(camera.prg, mMat);
 
         mMat = mat4.create();
         translation = vec3.create();
         vec3.set(translation, 3.0, 0.0, 0.0);
         mat4.translate(mMat, mMat, translation);
-
-        mvpMat = mat4.create();
-        mat4.multiply(mvpMat, camera.vpMat, mMat);
-        drawObject(camera.prg, mvpMat, camera.gl);
+        camera.drawObject(camera.prg, mMat);
         
         camera.flush();
         
         setTimeout(arguments.callee, 1000 / 5);
     })();
-}
-
-function linkProgram (vshaderId, fshaderId, gl) {
-    console.log(gl);
-    var vshader = createShader(vshaderId, gl);
-    var fshader = createShader(fshaderId, gl);
-    return createProgram(vshader, fshader, gl);
-}
-
-function createShader (id, gl) {
-    console.log(gl);
-    var shader;
-    var scriptElement = document.getElementById(id);
-    if (!scriptElement) {
-        return;
-    }
-
-    switch (scriptElement.type) {
-        case 'x-shader/x-vertex' :
-            shader = gl.createShader(gl.VERTEX_SHADER);
-            break;
-        case 'x-shader/x-fragment' :
-            shader = gl.createShader(gl.FRAGMENT_SHADER);
-            break;
-        default :
-            return;
-    }
-
-    var sourceCode, req = new XMLHttpRequest();
-    req.open('GET', scriptElement.src, false);
-    req.onload = function () {
-        sourceCode = req.response;
-    }
-    req.send();
-    
-    gl.shaderSource(shader, sourceCode);
-    gl.compileShader(shader);
-
-    if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        return shader;
-    } else {
-        alert('ERROR at onload.createShader()\n' + gl.getShaderInfoLog(shader));
-        return null;
-    }
-}
-
-function createProgram (vs, fs, gl) {
-    var program = gl.createProgram();
-
-    gl.attachShader(program, vs);
-    gl.attachShader(program, fs);
-    gl.linkProgram(program);
-
-    if (gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        gl.useProgram(program);
-        return program;
-    } else {
-        alert('ERROR at onload.create_program()\n' + gl.getProgramInfoLog(program));
-    }
-}
-
-function registerData (data, prg, name, attrStride, gl) {
-    var vbo = createVbo(data, gl);
-    var attrLocation = gl.getAttribLocation(prg, name);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.enableVertexAttribArray(attrLocation);
-    gl.vertexAttribPointer(attrLocation, attrStride, gl.FLOAT, false, 0, 0);
-}
-
-function createVbo (data, gl) {
-    var vbo = gl.createBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
-    return vbo;
-}
-
-function drawObject(prg, mvpMat, gl) {
-    var uniLocation = gl.getUniformLocation(prg, 'mvpMatrix');
-    gl.uniformMatrix4fv(uniLocation, false, mvpMat);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
 function printMatrix (mat) {
@@ -179,4 +173,8 @@ function printMatrix (mat) {
         matrix.push([mat[i], mat[4+i], mat[8+i], mat[12+i]]);
     }
     console.log(matrix);
+}
+
+function degToRad (angle) {
+    return angle / 180 * Math.PI;
 }
