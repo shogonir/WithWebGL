@@ -115,17 +115,25 @@ class Camera {
 class Object3D {
 
   constructor () {
-    this.position = vec3.create();
+    this.setPosition(0.0, 0.0, 0.0);
+    this.setScale(1.0, 1.0, 1.0);
   }
 
   setPosition (x, y, z) {
-    var newPosition = vec3.create();
-    vec3.set(newPosition, x, y, z);
-    this.position = newPosition;
+    var position = vec3.create();
+    vec3.set(position, x, y, z);
+    this.position = position;
+  }
+
+  setScale (x, y, z) {
+    var scale = vec3.create();
+    vec3.set(scale, x, y, z);
+    this.scale = scale;
   }
 
   calcModelMatrix () {
     var mMat = mat4.create();
+    mat4.scale(mMat, mMat, this.scale);
     mat4.translate(mMat, mMat, this.position);
     return mMat;
   }
@@ -175,7 +183,8 @@ onload = function () {
     var triangle;
 
     triangle = new Triangle();
-    triangle.setPosition(x, y + 1.0, 0.0);
+    triangle.setPosition(x, y, 0.0);
+    triangle.setScale(x / 4 + 1, y / 4 + 1, 1.0);
     camera.drawObject(triangle.calcModelMatrix());
 
     triangle = new Triangle();
@@ -184,7 +193,7 @@ onload = function () {
 
     camera.flush();
 
-    setTimeout(arguments.callee, 1000 / 5);
+    setTimeout(arguments.callee, 1000 / 30);
   })();
 }
 
