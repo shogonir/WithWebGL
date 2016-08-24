@@ -116,6 +116,8 @@ class Object3D {
 
   constructor () {
     this.setPosition(0.0, 0.0, 0.0);
+    this.setRotationAxis(0.707, 0.707, 0.0);
+    this.setRotationAngle(0.0);
     this.setScale(1.0, 1.0, 1.0);
   }
 
@@ -123,6 +125,16 @@ class Object3D {
     var position = vec3.create();
     vec3.set(position, x, y, z);
     this.position = position;
+  }
+
+  setRotationAxis (x, y, z) {
+    var axis = vec3.create();
+    vec3.set(axis, x, y, z);
+    this.rotationAxis = axis;
+  }
+
+  setRotationAngle (angle) {
+    this.rotationAngle = angle;
   }
 
   setScale (x, y, z) {
@@ -134,6 +146,7 @@ class Object3D {
   calcModelMatrix () {
     var mMat = mat4.create();
     mat4.scale(mMat, mMat, this.scale);
+    mat4.rotate(mMat, mMat, this.rotationAngle, this.rotationAxis);
     mat4.translate(mMat, mMat, this.position);
     return mMat;
   }
@@ -184,7 +197,7 @@ onload = function () {
 
     triangle = new Triangle();
     triangle.setPosition(x, y, 0.0);
-    triangle.setScale(x / 4 + 1, y / 4 + 1, 1.0);
+    triangle.setRotationAngle(count / 10);
     camera.drawObject(triangle.calcModelMatrix());
 
     triangle = new Triangle();
