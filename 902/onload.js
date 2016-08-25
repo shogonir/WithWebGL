@@ -102,13 +102,23 @@ class Camera {
     return vbo;
   }
 
+  createIbo (data) {
+    var gl = this.gl;
+    var ibo = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Int16Array(data), gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    return ibo;
+  }
+
   drawObject(mMat) {
     var gl = this.gl;
     var mvpMat = mat4.create();
     mat4.multiply(mvpMat, this.vpMat, mMat);
     var uniLocation = gl.getUniformLocation(this.prg, 'mvpMatrix');
     gl.uniformMatrix4fv(uniLocation, false, mvpMat);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    //gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
   }
 }
 
@@ -116,7 +126,7 @@ class Object3D {
 
   constructor () {
     this.setPosition(0.0, 0.0, 0.0);
-    this.setRotationAxis(0.707, 0.707, 0.0);
+    this.setRotationAxis(0.0, 1.0, 0.0);
     this.setRotationAngle(0.0);
     this.setScale(1.0, 1.0, 1.0);
   }
@@ -167,16 +177,26 @@ onload = function () {
   var camera = new Camera('canvas');
 
   var vertexPositions = [
-    0.0, 1.0, 0.0,
-    1.0, 0.0, 0.0,
-    -1.0, 0.0, 0.0
+     0.0,  1.0, 0.0,
+     1.0,  0.0, 0.0,
+    -1.0,  0.0, 0.0,
+     0.0, -1.0, 0.0
   ];
 
   var vertexColors = [
-    1.0, 1.0, 0.0, 1.0,
-    1.0, 1.0, 0.0, 1.0,
-    1.0, 1.0, 0.0, 1.0,
+    1.0, 0.0, 0.0, 1.0,
+    0.0, 1.0, 0.0, 1.0,
+    0.0, 0.0, 1.0, 1.0,
+    1.0, 1.0, 1.0, 1.0
   ];
+
+  var indexs = [
+    0, 1, 2,
+    1, 2, 3
+  ];
+
+  var ibo = camera.createIbo(indexs);
+  //camera.gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
 
   camera.registerData(vertexPositions, 'position', 3);
   camera.registerData(vertexColors,    'color',    4);
