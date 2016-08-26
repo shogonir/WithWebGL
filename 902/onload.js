@@ -76,18 +76,23 @@ class Camera {
     gl.attachShader(program, fs);
     gl.linkProgram(program);
 
+    return program;
+  }
+    
+  attachProgram (program) {
+    var gl = this.gl;
+
     if (gl.getProgramParameter(program, gl.LINK_STATUS)) {
       gl.useProgram(program);
-      return program;
     } else {
       alert('ERROR at onload.create_program()\n' + gl.getProgramInfoLog(program));
     }
   }
 
-  registerData (data, name, attrStride) {
+  registerData (data, name, attrStride, program) {
     var gl = this.gl;
     var vbo = this.createVbo(data);
-    var attrLocation = gl.getAttribLocation(this.prg, name);
+    var attrLocation = gl.getAttribLocation(program, name);
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.enableVertexAttribArray(attrLocation);
     gl.vertexAttribPointer(attrLocation, attrStride, gl.FLOAT, false, 0, 0);
@@ -102,33 +107,46 @@ class Camera {
     return vbo;
   }
 
-  createIbo (data) {
+  createIbo (indices) {
     var gl = this.gl;
     var ibo = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Int16Array(data), gl.STATIC_DRAW);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Int16Array(indices), gl.STATIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    return ibo;
   }
 
-  drawObject(mMat) {
+  drawObject(obj) {
     var gl = this.gl;
+    var mMat = obj.calcModelMatrix();
     var mvpMat = mat4.create();
     mat4.multiply(mvpMat, this.vpMat, mMat);
-    var uniLocation = gl.getUniformLocation(this.prg, 'mvpMatrix');
+    obj.program = obj.program ? obj.program : this.compileProgram(obj);
+    this.attachProgram(obj.program);
+    var uniLocation = gl.getUniformLocation(obj.program, 'mvpMatrix');
     gl.uniformMatrix4fv(uniLocation, false, mvpMat);
-    //gl.drawArrays(gl.TRIANGLES, 0, 3);
-    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+    gl.drawElements(gl.TRIANGLES, obj.indices.length, gl.UNSIGNED_SHORT, 0);
+  }
+
+  compileProgram (obj) {
+    var program = this.linkProgram('vertex-shader', 'fragment-shader');
+    this.registerData(obj.vertices, 'position', 3, program);
+    this.registerData(obj.colors,   'color',    4, program);
+    this.createIbo(obj.indices);
+    return program;
   }
 }
 
 class Object3D {
 
-  constructor () {
+  constructor (vertices, indices, colors) {
+    this.vertices = vertices;
+    this.indices  = indices;
+    this.colors   = colors;
+    this.program  = null;
     this.setPosition(0.0, 0.0, 0.0);
     this.setRotationAxis(0.0, 1.0, 0.0);
-    this.setRotationAngle(0.0);
     this.setScale(1.0, 1.0, 1.0);
+    this.rotationAngle = 0.0;
   }
 
   setPosition (x, y, z) {
@@ -141,10 +159,6 @@ class Object3D {
     var axis = vec3.create();
     vec3.set(axis, x, y, z);
     this.rotationAxis = axis;
-  }
-
-  setRotationAngle (angle) {
-    this.rotationAngle = angle;
   }
 
   setScale (x, y, z) {
@@ -176,30 +190,24 @@ onload = function () {
 
   var camera = new Camera('canvas');
 
-  var vertexPositions = [
+  var vertices = [
      0.0,  1.0, 0.0,
      1.0,  0.0, 0.0,
     -1.0,  0.0, 0.0,
      0.0, -1.0, 0.0
   ];
 
-  var vertexColors = [
+  var colors = [
     1.0, 0.0, 0.0, 1.0,
     0.0, 1.0, 0.0, 1.0,
     0.0, 0.0, 1.0, 1.0,
     1.0, 1.0, 1.0, 1.0
   ];
 
-  var indexs = [
+  var indices = [
     0, 1, 2,
     1, 2, 3
   ];
-
-  var ibo = camera.createIbo(indexs);
-  //camera.gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-
-  camera.registerData(vertexPositions, 'position', 3);
-  camera.registerData(vertexColors,    'color',    4);
 
   var count = 0;
 
@@ -213,16 +221,16 @@ onload = function () {
     var x = Math.cos(rad);
     var y = Math.sin(rad);
 
-    var triangle;
+    var square;
 
-    triangle = new Triangle();
-    triangle.setPosition(x, y, 0.0);
-    triangle.setRotationAngle(count / 10);
-    camera.drawObject(triangle.calcModelMatrix());
+    square = new Object3D(vertices, indices, colors);
+    square.setPosition(x, y, 0.0);
+    square.rotationAngle = count / 10;
+    camera.drawObject(square);
 
-    triangle = new Triangle();
-    triangle.setPosition(3.0, 0.0, 0.0);
-    camera.drawObject(triangle.calcModelMatrix());
+    square = new Object3D(vertices, indices, colors);
+    square.setPosition(3.0, 0.0, 0.0);
+    camera.drawObject(square);
 
     camera.flush();
 
