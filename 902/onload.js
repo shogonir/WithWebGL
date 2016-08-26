@@ -4,14 +4,13 @@ class Camera {
     var c = document.getElementById(canvasId);
     this.canvas = c;
     this.gl = c.getContext('webgl') || c.getContext('experimental-webgl');
-    this.prg = this.linkProgram('vertex-shader', 'fragment-shader');
-    this.vMat = mat4.create();
-    mat4.lookAt(this.vMat, [0, 1, 3], [0, 0, 0], [0, 1, 0]);
-    this.pMat = mat4.create();
-    var ratio = this.canvas.width / this.canvas.height;
-    mat4.perspective(this.pMat, degToRad(90), ratio, 0.1, 100);
+    var vMat = mat4.create();
+    mat4.lookAt(vMat, [0, 1, 3], [0, 0, 0], [0, 1, 0]);
+    var pMat = mat4.create();
     this.vpMat = mat4.create();
-    mat4.multiply(this.vpMat, this.pMat, this.vMat);
+    var ratio = this.canvas.width / this.canvas.height;
+    mat4.perspective(pMat, degToRad(90), ratio, 0.1, 100);
+    mat4.multiply(this.vpMat, pMat, vMat);
   }
 
   clearCanvas (r, g, b, a, depth) {
@@ -79,13 +78,15 @@ class Camera {
     return program;
   }
     
-  attachProgram (program) {
-    var gl = this.gl;
+  attachProgram (obj) {
+    var gl = this.gl; 
 
-    if (gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      gl.useProgram(program);
+    if (gl.getProgramParameter(obj.program, gl.LINK_STATUS)) {
+      gl.useProgram(obj.program);
+      var uniLocation = gl.getUniformLocation(obj.program, 'mvpMatrix');
+      gl.uniformMatrix4fv(uniLocation, false, this.calcMVPMatrix(obj.calcModelMatrix()));
     } else {
-      alert('ERROR at onload.create_program()\n' + gl.getProgramInfoLog(program));
+      alert('ERROR at onload.create_program()\n' + gl.getProgramInfoLog(obj.program));
     }
   }
 
@@ -115,15 +116,17 @@ class Camera {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
   }
 
-  drawObject(obj) {
-    var gl = this.gl;
-    var mMat = obj.calcModelMatrix();
+  calcMVPMatrix (mMat) {
     var mvpMat = mat4.create();
     mat4.multiply(mvpMat, this.vpMat, mMat);
+    return mvpMat;
+  }
+
+  drawObject(obj) {
+    var gl = this.gl;
+    var mvpMat = this.calcMVPMatrix(obj.calcModelMatrix());
     obj.program = obj.program ? obj.program : this.compileProgram(obj);
-    this.attachProgram(obj.program);
-    var uniLocation = gl.getUniformLocation(obj.program, 'mvpMatrix');
-    gl.uniformMatrix4fv(uniLocation, false, mvpMat);
+    this.attachProgram(obj); 
     gl.drawElements(gl.TRIANGLES, obj.indices.length, gl.UNSIGNED_SHORT, 0);
   }
 
@@ -169,9 +172,9 @@ class Object3D {
 
   calcModelMatrix () {
     var mMat = mat4.create();
-    mat4.scale(mMat, mMat, this.scale);
-    mat4.rotate(mMat, mMat, this.rotationAngle, this.rotationAxis);
     mat4.translate(mMat, mMat, this.position);
+    mat4.rotate(mMat, mMat, this.rotationAngle, this.rotationAxis);
+    mat4.scale(mMat, mMat, this.scale);
     return mMat;
   }
 }
@@ -184,9 +187,6 @@ class Triangle extends Object3D {
 }
 
 onload = function () {
-
-  var width  = 500;
-  var height = 300;
 
   var camera = new Camera('canvas');
 
@@ -209,6 +209,8 @@ onload = function () {
     1, 2, 3
   ];
 
+  var square = new Object3D(vertices, indices, colors);
+
   var count = 0;
 
   (function () {
@@ -221,14 +223,10 @@ onload = function () {
     var x = Math.cos(rad);
     var y = Math.sin(rad);
 
-    var square;
-
-    square = new Object3D(vertices, indices, colors);
     square.setPosition(x, y, 0.0);
     square.rotationAngle = count / 10;
     camera.drawObject(square);
 
-    square = new Object3D(vertices, indices, colors);
     square.setPosition(3.0, 0.0, 0.0);
     camera.drawObject(square);
 
