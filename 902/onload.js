@@ -3,7 +3,11 @@ class Camera {
   constructor (canvasId) {
     var c = document.getElementById(canvasId);
     this.canvas = c;
-    this.gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+    var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+    this.gl = gl;
+    gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
     var vMat = mat4.create();
     mat4.lookAt(vMat, [0, 1, 3], [0, 0, 0], [0, 1, 0]);
     var pMat = mat4.create();
@@ -131,11 +135,11 @@ class Camera {
   }
 
   compileProgram (obj) {
-    var program = this.linkProgram('vertex-shader', 'fragment-shader');
-    this.registerData(obj.vertices, 'position', 3, program);
-    this.registerData(obj.colors,   'color',    4, program);
+    obj.program = this.linkProgram('vertex-shader', 'fragment-shader');
+    this.registerData(obj.vertices, 'position', 3, obj.program);
+    this.registerData(obj.colors,   'color',    4, obj.program);
     this.createIbo(obj.indices);
-    return program;
+    return obj.program;
   }
 }
 
@@ -179,37 +183,40 @@ class Object3D {
   }
 }
 
-class Triangle extends Object3D {
-
-  constructor () {
-    super();
-  }
-}
-
 onload = function () {
 
   var camera = new Camera('canvas');
 
   var vertices = [
-     0.0,  1.0, 0.0,
-     1.0,  0.0, 0.0,
-    -1.0,  0.0, 0.0,
-     0.0, -1.0, 0.0
+    0.0, 1.0, 0.0,
+    1.0, 0.0, 0.0,
+    0.0, 0.0, 1.0,
+    -1.0, 0.0, 0.0,
+    0.0, 0.0, -1.0,
+    0.0, -1.0, 0.0
   ];
 
   var colors = [
-    1.0, 0.0, 0.0, 1.0,
-    0.0, 1.0, 0.0, 1.0,
-    0.0, 0.0, 1.0, 1.0,
+    1.0, 1.0, 1.0, 1.0,
+    0.0, 1.0, 1.0, 1.0,
+    1.0, 0.0, 1.0, 1.0,
+    0.0, 1.0, 1.0, 1.0,
+    1.0, 0.0, 1.0, 1.0,
     1.0, 1.0, 1.0, 1.0
   ];
 
   var indices = [
-    0, 1, 2,
-    1, 2, 3
+    0, 2, 1,
+    0, 3, 2,
+    0, 4, 3,
+    0, 1, 4,
+    5, 1, 2,
+    5, 2, 3,
+    5, 3, 4,
+    5, 4, 1
   ];
 
-  var square = new Object3D(vertices, indices, colors);
+  var octahedron = new Object3D(vertices, indices, colors);
 
   var count = 0;
 
@@ -223,16 +230,13 @@ onload = function () {
     var x = Math.cos(rad);
     var y = Math.sin(rad);
 
-    square.setPosition(x, y, 0.0);
-    square.rotationAngle = count / 10;
-    camera.drawObject(square);
-
-    square.setPosition(3.0, 0.0, 0.0);
-    camera.drawObject(square);
+    octahedron.setPosition(x, y, x * y);
+    octahedron.rotationAngle = count / 20;
+    camera.drawObject(octahedron);
 
     camera.flush();
 
-    setTimeout(arguments.callee, 1000 / 30);
+    setTimeout(arguments.callee, 1000 / 50);
   })();
 }
 
