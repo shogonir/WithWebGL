@@ -87,6 +87,9 @@ class Camera {
 
     if (gl.getProgramParameter(obj.program, gl.LINK_STATUS)) {
       gl.useProgram(obj.program);
+      this.registerData(obj.vertices, 'position', 3, obj.program);
+      this.registerData(obj.colors,   'color',    4, obj.program);
+      this.createIbo(obj.indices);
       var uniLocation = gl.getUniformLocation(obj.program, 'mvpMatrix');
       gl.uniformMatrix4fv(uniLocation, false, this.calcMVPMatrix(obj.calcModelMatrix()));
     } else {
@@ -129,17 +132,11 @@ class Camera {
   drawObject(obj) {
     var gl = this.gl;
     var mvpMat = this.calcMVPMatrix(obj.calcModelMatrix());
-    obj.program = obj.program ? obj.program : this.compileProgram(obj);
+    if (!obj.program) {
+      obj.program = this.linkProgram('vertex-shader', 'fragment-shader');
+    }
     this.attachProgram(obj); 
     gl.drawElements(gl.TRIANGLES, obj.indices.length, gl.UNSIGNED_SHORT, 0);
-  }
-
-  compileProgram (obj) {
-    obj.program = this.linkProgram('vertex-shader', 'fragment-shader');
-    this.registerData(obj.vertices, 'position', 3, obj.program);
-    this.registerData(obj.colors,   'color',    4, obj.program);
-    this.createIbo(obj.indices);
-    return obj.program;
   }
 }
 
@@ -202,7 +199,7 @@ onload = function () {
     1.0, 0.0, 1.0, 1.0,
     0.0, 1.0, 1.0, 1.0,
     1.0, 0.0, 1.0, 1.0,
-    1.0, 1.0, 1.0, 1.0
+    0.0, 0.0, 1.0, 1.0
   ];
 
   var indices = [
@@ -218,6 +215,29 @@ onload = function () {
 
   var octahedron = new Object3D(vertices, indices, colors);
 
+  var vertices2 = [
+    0.0, 1.0, 0.0,
+    1.0, 0.0, 0.0,
+    -1.0, 0.0, 0.0,
+    0.0, -1.0, 0.0
+  ];
+
+  var colors2 = [
+    1.0, 1.0, 1.0, 1.0,
+    0.0, 1.0, 1.0, 1.0,
+    1.0, 0.0, 1.0, 1.0,
+    0.0, 0.0, 1.0, 1.0
+  ];
+
+  var indices2 = [
+    0, 1, 2,
+    0, 2, 1,
+    3, 1, 2,
+    3, 2, 1
+  ];
+
+  var square = new Object3D(vertices2, indices2, colors2);
+
   var count = 0;
 
   (function () {
@@ -230,9 +250,16 @@ onload = function () {
     var x = Math.cos(rad);
     var y = Math.sin(rad);
 
-    octahedron.setPosition(x, y, x * y);
+    octahedron.setPosition(x - 2, y - 1, x * y);
     octahedron.rotationAngle = count / 20;
     camera.drawObject(octahedron);
+
+    octahedron.setPosition(-x / 2, y / 2 + 1, 0);
+    camera.drawObject(octahedron);
+    
+    square.rotationAngle = count / 10;
+    square.setPosition(3, 0, 0);
+    camera.drawObject(square);
 
     camera.flush();
 
