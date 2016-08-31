@@ -2,6 +2,8 @@ class Camera {
 
   constructor (canvasId) {
     var c = document.getElementById(canvasId);
+    c.width  = 960;
+    c.height = 540;
     this.canvas = c;
     var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
     this.gl = gl;
@@ -184,6 +186,7 @@ onload = function () {
 
   var camera = new Camera('canvas');
 
+  // define position of vertices
   var vertices = [
     0.0, 1.0, 0.0,
     1.0, 0.0, 0.0,
@@ -197,6 +200,7 @@ onload = function () {
     1.0, 1.0, 1.0, 1.0
   ];
 
+  // front and back polygon
   var indices = [
     0, 1, 2,
     0, 2, 1
@@ -204,6 +208,7 @@ onload = function () {
 
   var triangle = new Object3D(vertices, indices, colors);
 
+  // rotate base on y-axis
   triangle.setRotationAxis(0, 1, 0);
 
   var count = 0;
@@ -212,6 +217,7 @@ onload = function () {
 
     camera.clearCanvas(0.0, 0.0, 0.0, 1.0, 1.0);
 
+    // count tick
     count ++;
 
     var rad = (count % 360) * Math.PI / 45;
