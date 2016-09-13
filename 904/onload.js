@@ -3,13 +3,8 @@ class Camera {
   constructor (canvasId) {
     this.canvas = this.initCanvas(canvasId);
     this.gl = this.initGL();
-    var vMat = mat4.create();
-    mat4.lookAt(vMat, [0, 1, 3], [0, 0, 0], [0, 1, 0]);
-    var pMat = mat4.create();
-    this.vpMat = mat4.create();
-    var ratio = this.canvas.width / this.canvas.height;
-    mat4.perspective(pMat, degToRad(90), ratio, 0.1, 100);
-    mat4.multiply(this.vpMat, pMat, vMat);
+    this.position = [10, 10, 10];
+    this.vpMat = this.calcVPMatrix();
   }
 
   initCanvas (canvasId) {
@@ -134,9 +129,20 @@ class Camera {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
   }
 
+  calcVPMatrix () {
+    var vMat = mat4.create();
+    mat4.lookAt(vMat, this.position, [0, 0, 0], [0, 1, 0]);
+    var pMat = mat4.create();
+    this.vpMat = mat4.create();
+    var ratio = this.canvas.width / this.canvas.height;
+    mat4.perspective(pMat, degToRad(90), ratio, 0.1, 100);
+    mat4.multiply(this.vpMat, pMat, vMat);
+    return this.vpMat;
+  } 
+
   calcMVPMatrix (mMat) {
     var mvpMat = mat4.create();
-    mat4.multiply(mvpMat, this.vpMat, mMat);
+    mat4.multiply(mvpMat, this.calcVPMatrix(), mMat);
     return mvpMat;
   }
 
@@ -191,56 +197,39 @@ class Object3D {
   }
 }
 
+var camera;
+
 onload = function () {
 
-  var camera = new Camera('canvas');
+  var json = readJson('../data/object3d.json');
+  
+  var buildings = new Object3D(json.vertices, json.indices, json.colors)
 
-  // define position of vertices
-  var vertices = [
-    0.0, 1.0, 0.0,
-    1.0, 0.0, 0.0,
-    -1.0, 0.0, 0.0
-  ];
+  camera = new Camera('canvas');
 
-  // all vertex is white (r,g,b,a)=(1,1,1,1)
-  var colors = [
-    1.0, 1.0, 1.0, 1.0,
-    1.0, 1.0, 1.0, 1.0,
-    1.0, 1.0, 1.0, 1.0
-  ];
-
-  // front and back polygon
-  var indices = [
-    0, 1, 2,
-    0, 2, 1
-  ];
-
-  var triangle = new Object3D(vertices, indices, colors);
-
-  // rotate base on y-axis
-  triangle.setRotationAxis(0, 1, 0);
-
-  var count = 0;
+  camera.canvas.addEventListener('mousemove', mouseMove);
 
   (function () {
 
     camera.clearCanvas(0.0, 0.0, 0.0, 1.0, 1.0);
 
-    // count tick
-    count ++;
-
-    var rad = (count % 360) * Math.PI / 45;
-    var x = Math.cos(rad);
-    var z = Math.sin(rad);
-
-    triangle.setPosition(x, 0, z);
-    triangle.rotationAngle = rad;
-    camera.drawObject(triangle);
+    camera.drawObject(buildings);
 
     camera.flush();
-
-    setTimeout(arguments.callee, 1000 / 50);
+    
+    setTimeout(arguments.callee, 1000 / 30);
   })();
+}
+
+function readJson(fname) {
+  var request = new XMLHttpRequest();
+  request.open('get', fname, false);
+  var json = '';
+  request.onload = function () {
+    json = request.responseText;
+  }
+  request.send();
+  return JSON.parse(json);
 }
 
 function printMatrix (mat) {
@@ -254,3 +243,18 @@ function printMatrix (mat) {
 function degToRad (angle) {
   return angle / 180 * Math.PI;
 }
+
+function mouseMove (e) {
+  var c  = camera.canvas;
+  var cw = c.width;
+  var ch = c.height;
+  var x  = - (e.clientX - c.offsetLeft - cw * 0.5) / cw;
+  var y  = (e.clientY - c.offsetTop  - ch * 0.5) / ch;
+  var m  = Math.sqrt(x * x + y * y);
+  var r  = 7.5;
+  var radx = 0.4 * Math.PI * (y + 0.5);
+  var rady = Math.PI * x;
+  var cos  = r * Math.cos(radx);
+  camera.position = [cos*Math.sin(rady), r*Math.sin(radx), cos*Math.cos(rady)];
+}
+
